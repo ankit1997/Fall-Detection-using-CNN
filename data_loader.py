@@ -1,5 +1,4 @@
 import os
-import re
 import config
 import pickle
 import numpy as np
