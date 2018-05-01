@@ -65,6 +65,7 @@ class Data:
 
         # Shuffle
         indices = list(range(self.X.shape[0]))
+        np.random.seed(7)
         np.random.shuffle(indices)
 
         self.X = self.X[indices]
@@ -166,9 +167,9 @@ class Data:
         self.Y = np.concatenate([self.Y, y], axis=0)
 
 class DataLoader:
-    def __init__(self, path, reload=True, train_size=0.8):
+    def __init__(self, path, use_previous=True, train_size=0.8):
 
-        self.data = self.get_data(path, reload)
+        self.data = self.get_data(path, use_previous)
 
         self.X = self.data.X
         self.Y = self.data.Y
@@ -198,22 +199,20 @@ class DataLoader:
             end = min(start+config.BATCH_SIZE, num_points)
             yield self.validX[start: end], self.validY[start: end]
 
-    def get_data(self, path, reload):
-        basename = os.path.basename(path)
-        fname = basename+'.pkl'
-        path_name = os.path.join(config.databin, fname)
-
-        if not reload:
+    def get_data(self, path, use_previous):
+        path_name = os.path.join(config.databin, "dataset.pkl")
+        
+        if use_previous:
             if os.path.isfile(path_name):
                 prev_data = pickle.load(open(path_name, 'rb'))
-                print("Using preloaded data...")
+                print("Using previous data...")
                 return prev_data
         
+        print("Loading data...")
         data = Data(path)
         pickle.dump(data, open(path_name, 'wb'))
-        print("Saved data.")
         return data
 
 if __name__ == "__main__":
-	import sys
-	d = DataLoader(sys.argv[1])
+    import sys
+    d = DataLoader(sys.argv[1])
