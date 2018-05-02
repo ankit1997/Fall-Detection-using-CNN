@@ -9,6 +9,17 @@ def validation(sess,
     dataLoader,
     writer,
     epoch):
+    """
+    Runs the neural network model on validation dataset.
+    Args:
+        sess : Tensorflow session.
+        model : Dict containing model inputs and outputs.
+        dataLoader : Object of DataLoader class.
+        writer : tf.summary.FileWriter object.
+        epoch : Current Epoch.
+    Returns:
+        Average validation error on validation dataset.
+    """
 
     total_loss = 0.0
 
