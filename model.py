@@ -17,32 +17,42 @@ def cnn_model(log=False):
 
     with tf.variable_scope("Convolution-layers"):
         
-        conv1 = tf.layers.conv1d(sensor_data, 16, 3, strides=1, name="conv1")
+        conv1 = tf.layers.conv1d(sensor_data, 16, 3, 
+                                strides=1, 
+                                activation=tf.nn.elu,
+                                name="conv1")
         pool1 = tf.layers.max_pooling1d(conv1, 2, 2, name="pool1")
 
-        conv2 = tf.layers.conv1d(pool1, 32, 3, strides=1, name="conv2")
+        conv2 = tf.layers.conv1d(pool1, 32, 3, 
+                                strides=1, 
+                                activation=tf.nn.elu,
+                                name="conv2")
         pool2 = tf.layers.max_pooling1d(conv2, 2, 2, name="pool2")
 
-        conv3 = tf.layers.conv1d(pool2, 64, 3, strides=1, name="conv3")
+        conv3 = tf.layers.conv1d(pool2, 64, 3, 
+                                strides=1, 
+                                activation=tf.nn.elu,
+                                name="conv3")
         pool3 = tf.layers.max_pooling1d(conv3, 2, 2, name="pool3")
 
     flatten = tf.layers.flatten(pool3)
 
     with tf.variable_scope("Dense-layers"):
 
-        dense1 = tf.layers.dense(flatten, 512, name="dense1")
+        dense1 = tf.layers.dense(flatten, 512, activation=tf.nn.elu, name="dense1")
         dropout1 = tf.layers.dropout(dense1, name="dropout1")
 
-        dense2 = tf.layers.dense(dropout1, 64, name="dense2")
+        dense2 = tf.layers.dense(dropout1, 64, activation=tf.nn.elu, name="dense2")
         dropout2 = tf.layers.dropout(dense2, name="dropout2")
 
-        dense3 = tf.layers.dense(dropout2, 8, name="dense3")
+        dense3 = tf.layers.dense(dropout2, 8, activation=tf.nn.elu, name="dense3")
         dropout3 = tf.layers.dropout(dense3, name="dropout3")
 
-        dense4 = tf.layers.dense(dropout3, 4, name="dense4")
+        dense4 = tf.layers.dense(dropout3, 4, activation=tf.nn.elu, name="dense4")
+        tf.summary.histogram("dense4", dense4)
         
         with tf.variable_scope("dense5"):
-            dense5 = tf.layers.dense(dense4, 1)
+            dense5 = tf.layers.dense(dense4, 1, activation=tf.nn.sigmoid)
             dense5 = tf.squeeze(dense5)
 
         prediction = tf.round(dense5, name="prediction")
@@ -52,6 +62,8 @@ def cnn_model(log=False):
     summary = tf.summary.merge_all()
 
     train = tf.train.AdamOptimizer(0.0001).minimize(loss)
+    # train = tf.train.RMSPropOptimizer(0.0001).minimize(loss)
+    # train = tf.train.FtrlOptimizer(0.0001).minimize(loss)
 
     if log:
         print("Sensor data: {}".format(sensor_data.shape))
@@ -95,14 +107,3 @@ def cnn_model(log=False):
 if __name__ == "__main__":
 
     model = cnn_model(log=True)
-
-    import numpy as np
-
-    with tf.Session() as sess:
-        writer = tf.summary.FileWriter(config.logdir, sess.graph)
-        sess.run(tf.global_variables_initializer())
-        summ = sess.run(model['summary'], feed_dict={
-                                                model['sensor_data']: np.random.random(size=(1, *config.FEATURES_SHAPE)),
-                                                model['label']: np.array([1])
-                                            })
-        writer.add_summary(summ)
