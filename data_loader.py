@@ -147,23 +147,35 @@ class Data:
         return temp
 
     def _augment(self):
-        x = self.X.copy()
-        y = self.Y.copy()
+        if np.random.random() > 0.5:
+            x = self.X.copy()
+            y = self.Y.copy()
 
-        # Add random [0, 2) noise
-        x = x + 2*np.random.random(size=x.shape)
-        self.X = np.concatenate([self.X, x], axis=0)
-        self.Y = np.concatenate([self.Y, y], axis=0)
+            # Add random [0, 2) noise
+            x = x + 2*np.random.random(size=x.shape)
+            self.X = np.concatenate([self.X, x], axis=0)
+            self.Y = np.concatenate([self.Y, y], axis=0)
 
         ##################################################
 
-        x = self.X.copy()
-        y = self.Y.copy()
+        if np.random.random() > 0.5:
+            x = self.X.copy()
+            y = self.Y.copy()
 
-        # Subtract random [0, 2) noise
-        x = x - 2*np.random.random(size=x.shape)
-        self.X = np.concatenate([self.X, x], axis=0)
-        self.Y = np.concatenate([self.Y, y], axis=0)
+            # Subtract random [0, 2) noise
+            x = x - 2*np.random.random(size=x.shape)
+            self.X = np.concatenate([self.X, x], axis=0)
+            self.Y = np.concatenate([self.Y, y], axis=0)
+
+        ##################################################
+
+        if np.random.random() > 0.5:
+            x = self.X.copy()
+            y = self.Y.copy()
+
+            x = x + np.random.normal(size=self.X.shape)
+            self.X = np.concatenate([self.X, x], axis=0)
+            self.Y = np.concatenate([self.Y, y], axis=0)
 
 class DataLoader:
     def __init__(self, path, use_previous=True, train_size=0.8):
@@ -172,6 +184,10 @@ class DataLoader:
 
         self.X = self.data.X
         self.Y = self.data.Y
+
+        # Degree of balance in data
+        print("Fall datapoints: {}".format(np.count_nonzero(self.Y == 1)))
+        print("Non Fall datapoints: {}".format(np.count_nonzero(self.Y == 0)))
 
         self.trainX, self.validX, self.trainY, self.validY = train_test_split(self.X, self.Y, 
                                                                             train_size=train_size)
