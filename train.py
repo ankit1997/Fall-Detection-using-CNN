@@ -29,7 +29,7 @@ def train(dataLoader,
 
     if resume:
         try:
-            prev_session = os.path.join("saved_model", "model.ckpt-90")
+            prev_session = os.path.join("adam_0001_ELU_100", "saved_model", "model.ckpt-90")
             saver.restore(sess, prev_session)
             print("Using previous session: {}".format(prev_session))
         except:
@@ -60,6 +60,7 @@ def train(dataLoader,
     print("Calculating validation accuracy...")
 
     accuracies = []
+    true_positives = true_negatives = false_positives = false_negatives = 0
 
     for sensor, label in dataLoader.next_validation():
         # Run the graph.
@@ -68,10 +69,29 @@ def train(dataLoader,
                             model['sensor_data']: sensor,
                             model['label']: label
                         })
+
+        # detects the condition when the condition is present. 
+        true_positives += np.count_nonzero(pred + label == 2)
+
+        # does not detect the condition when the condition is absent.
+        true_negatives += np.count_nonzero(pred + label == 0)
+
+        # wrongly indicates that a particular condition or attribute is present.
+        false_positives += np.count_nonzero(pred > label)
+        
+        # wrongly indicates that a particular condition or attribute is absent.
+        false_negatives += np.count_nonzero(pred < label)
         
         accuracies.append(np.count_nonzero(pred == label) / pred.shape[0] * 100)
 
     accuracies = np.array(accuracies)
+    num_valid_points = dataLoader.validX.shape[0]
+
+    print("Average true positives: {}".format(true_positives / num_valid_points * 100))
+    print("Average true negatives: {}".format(true_negatives / num_valid_points * 100))
+    print("Average false positives: {}".format(false_positives / num_valid_points * 100))
+    print("Average false negatives: {}".format(false_negatives / num_valid_points * 100))
+
     print("Min Validation set accuracy: {} %".format(accuracies.min()))
     print("Max Validation set accuracy: {} %".format(accuracies.max()))
     print("Average Validation set accuracy: {} %".format(accuracies.mean()))
