@@ -1,3 +1,7 @@
+"""
+@author: Ankit Bindal
+"""
+
 import os
 import config
 import pickle
@@ -57,18 +61,9 @@ class Data:
         
         self.X = np.concatenate(self.X)
         self.Y = np.concatenate(self.Y)
-        # self.Y = self._to_onehot(self.Y)
 
         # perform data augmentation
         self._augment()
-
-        # Shuffle
-        indices = list(range(self.X.shape[0]))
-        np.random.seed(7)
-        np.random.shuffle(indices)
-
-        self.X = self.X[indices]
-        self.Y = self.Y[indices]
 
     def _read_trail(self, acc, gyro, ori):
         '''
@@ -138,14 +133,6 @@ class Data:
     def _getFiles(self, path):
         return [os.path.join(path, d) for d in os.listdir(path) if os.path.isfile(os.path.join(path, d))]
 
-    def _to_onehot(self, array):
-        rows = array.shape[0]
-        cols = len(np.unique(array))
-
-        temp = np.zeros((rows, cols))
-        temp[range(rows), array] = 1
-        return temp
-
     def _augment(self):
         if np.random.random() > 0.5:
             x = self.X.copy()
@@ -185,6 +172,14 @@ class DataLoader:
         self.X = self.data.X
         self.Y = self.data.Y
 
+        # Shuffle dataset
+        indices = list(range(self.X.shape[0]))
+        np.random.seed(config.RANDOM_SEED)
+        np.random.shuffle(indices)
+
+        self.X = self.X[indices]
+        self.Y = self.Y[indices]
+
         # Degree of balance in data
         print("Fall datapoints: {}".format(np.count_nonzero(self.Y == 1)))
         print("Non Fall datapoints: {}".format(np.count_nonzero(self.Y == 0)))
@@ -193,6 +188,8 @@ class DataLoader:
                                                                             train_size=train_size)
         print("Train dataset: {} : {}".format(self.trainX.shape, self.trainY.shape))
         print("Validation dataset: {} : {}".format(self.validX.shape, self.validY.shape))
+
+        # print("Total training size: {}".format(self.trainX.shape[0] * self.trainX.shape[1] * self.trainX.shape[2]))
 
         num_points = self.trainX.shape[0]
         self.train_batches = int(np.ceil(num_points / config.BATCH_SIZE))
