@@ -1,0 +1,10 @@
+Fall detection using Convolutional Neural Network
+=================================================
+
+This repository implements a fall detection algorithm based on sensor data (accelerometer and gyroscope) to classify the movements of a person as either `fall` or `non-fall`.
+
+The implementation is done using Tensorflow's `layers` API.
+The implementation uses a Convolutional Neural Network followed by several dense layers. The final output is a single sigmoid score (1 = fall, 0 = non-fall). 
+A Mean squared error metric is used as the loss function and optimized using AdamOptimizer.
+
+================================================
