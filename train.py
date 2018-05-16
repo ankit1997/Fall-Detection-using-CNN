@@ -1,6 +1,11 @@
+"""
+@author: Ankit Bindal
+"""
+
 import os
 import sys
 import config
+import argparse
 import numpy as np
 import tensorflow as tf
 from model import cnn_model
@@ -11,11 +16,16 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 def train(dataLoader,
     validate_after=10, 
     resume=False,
-    perform_training=True):
-    
+    perform_training=True,
+    save_best=False):    
     """
-    Trains the fall detection model using the provided training dataset.
-    Additionally, runs the validation dataset after every `validate_after` epochs.
+    Perform training and validation of model.
+    Args:
+        dataLoader : DataLoader object
+        validate_after : Number of epochs after which validation is performed.
+                         The model is also saved after this.
+        resume : If True, a previously saved model file is loaded.
+        performe_training : If False, training step is skipped, and final testing is done.
     """
     
     model = cnn_model()
@@ -34,8 +44,13 @@ def train(dataLoader,
             print("Using previous session: {}".format(prev_session))
         except:
             print("Creating a new session.")
+
+    if save_best:
+        MIN_VAL_LOSS = 100000000000
     
     if perform_training:
+        config.init()
+
         for e in range(config.EPOCHS):
             epoch_loss = 0.0
 
@@ -46,20 +61,35 @@ def train(dataLoader,
                                         model['summary']], 
                                     feed_dict={
                                         model['sensor_data']: sensor,
-                                        model['label']: label
+                                        model['label']: label,
+                                        model['training']: True
                                     })
                 epoch_loss += loss
 
-            print("Average loss for epoch {} = {}".format(e, epoch_loss/dataLoader.train_batches))
+            avg_loss = epoch_loss/dataLoader.train_batches
+            print("Average loss for epoch {} = {}".format(e, avg_loss))
 
             if e%validate_after == 0:
-                saver.save(sess, config.ckpt, global_step=e)
-                validation(sess, model, dataLoader, valid_writer, e)
+                
+                val_loss = validation(sess, model, dataLoader, valid_writer, e)
+
+                if save_best:
+                    if val_loss < MIN_VAL_LOSS:
+                        path = saver.save(sess, config.ckpt, global_step=e)
+                        print("Saved model to {}".format(path))
+                        MIN_VAL_LOSS = val_loss
+                else:
+                    path = saver.save(sess, config.ckpt, global_step=e)
+                    print("Saved model to {}".format(path))
+
                 train_writer.add_summary(tb, e)
 
+
+    print("===========================================")
     print("Calculating validation accuracy...")
 
     accuracies = []
+    positives = negatives = 0
     true_positives = true_negatives = false_positives = false_negatives = 0
 
     for sensor, label in dataLoader.next_validation():
@@ -67,8 +97,12 @@ def train(dataLoader,
         pred = sess.run(model['prediction'], 
                         feed_dict={
                             model['sensor_data']: sensor,
-                            model['label']: label
+                            model['label']: label,
+                            model['training']: False
                         })
+
+        positives += np.count_nonzero(label == 1)
+        negatives += np.count_nonzero(label == 0)
 
         # detects the condition when the condition is present. 
         true_positives += np.count_nonzero(pred + label == 2)
@@ -87,10 +121,13 @@ def train(dataLoader,
     accuracies = np.array(accuracies)
     num_valid_points = dataLoader.validX.shape[0]
 
-    print("Average true positives: {}".format(true_positives / num_valid_points * 100))
-    print("Average true negatives: {}".format(true_negatives / num_valid_points * 100))
-    print("Average false positives: {}".format(false_positives / num_valid_points * 100))
-    print("Average false negatives: {}".format(false_negatives / num_valid_points * 100))
+    # print("Average true positives: {}".format(true_positives / num_valid_points * 100))
+    # print("Average true negatives: {}".format(true_negatives / num_valid_points * 100))
+    # print("Average false positives: {}".format(false_positives / num_valid_points * 100))
+    # print("Average false negatives: {}".format(false_negatives / num_valid_points * 100))
+
+    print("True positives : {} / {} = {}%".format(true_positives, positives, true_positives/positives))
+    print("False positives: {} / {} = {}%".format(false_positives, negatives, false_positives/negatives))
 
     print("Min Validation set accuracy: {} %".format(accuracies.min()))
     print("Max Validation set accuracy: {} %".format(accuracies.max()))
@@ -100,11 +137,32 @@ def train(dataLoader,
 
 if __name__ == "__main__":
 
-    resume = '--resume' in sys.argv[1:]
-    perform_training = '--validate' not in sys.argv[1:]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("path", help="Path to dataset")
+    parser.add_argument("--resume", help="Resume previous training session", action="store_true")
+    parser.add_argument("--validate", help="If set, validation occurs without training", action="store_true")
+    parser.add_argument("--saveBest", help="If set, save session only for lowest validation loss epoch", action="store_true")
+    parser.add_argument("--usePrevious", help="If set, use previously loaded dataset", action="store_true")
+    parser.add_argument("--reload", help="If set, built dataset again", action="store_true")
+    args = parser.parse_args()
+
+    path = args.path
+    resume = args.resume
+    perform_training = not args.validate
+    saveBest = args.saveBest
+    use_previous = args.usePrevious
+    reload = args.reload
+
+    assert not(reload and use_previous), "Both reload and usePrevious flags cannot be set."
+
+    if reload:
+        use_previous = False
 
     # Load dataset
-    dataLoader = DataLoader(sys.argv[1])
+    dataLoader = DataLoader(path, use_previous=use_previous)
 
     # Train the model
-    train(dataLoader, resume=resume, perform_training=perform_training)
+    train(dataLoader, 
+        resume=resume, 
+        perform_training=perform_training, 
+        save_best=saveBest)

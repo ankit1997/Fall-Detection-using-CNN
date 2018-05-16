@@ -6,7 +6,10 @@ import config
 import tensorflow as tf
 
 def cnn_model(log=False):
+    """ Builds a CNN model and returns the inputs/outputs with loss and train_op in a dictionary. """
+    
     print("Building the CNN model...")
+
     # Placeholder for input sensor data.
     sensor_data = tf.placeholder(tf.float32, 
                                 shape=(None, *config.FEATURES_SHAPE),
@@ -15,23 +18,37 @@ def cnn_model(log=False):
     # Placeholder for output class label.
     label = tf.placeholder(tf.uint8, shape=(None, ), name="label")
 
+    training = tf.placeholder(tf.bool, name="is_training")
+
+    if config.activation == "lrelu":
+        activation = tf.nn.leaky_relu
+    elif config.activation == "elu":
+        activation = tf.nn.elu
+    elif config.activation == "relu":
+        activation = tf.nn.relu
+    elif config.activation == "tanh":
+        activation = tf.nn.tanh
+    else:
+        print("Unknown activation {}".format(config.activation))
+        exit()
+
     with tf.variable_scope("Convolution-layers"):
         
         conv1 = tf.layers.conv1d(sensor_data, 16, 3, 
                                 strides=1, 
-                                activation=tf.nn.elu,
+                                activation=activation,
                                 name="conv1")
         pool1 = tf.layers.max_pooling1d(conv1, 2, 2, name="pool1")
 
         conv2 = tf.layers.conv1d(pool1, 32, 3, 
                                 strides=1, 
-                                activation=tf.nn.elu,
+                                activation=activation,
                                 name="conv2")
         pool2 = tf.layers.max_pooling1d(conv2, 2, 2, name="pool2")
 
         conv3 = tf.layers.conv1d(pool2, 64, 3, 
                                 strides=1, 
-                                activation=tf.nn.elu,
+                                activation=activation,
                                 name="conv3")
         pool3 = tf.layers.max_pooling1d(conv3, 2, 2, name="pool3")
 
@@ -39,16 +56,16 @@ def cnn_model(log=False):
 
     with tf.variable_scope("Dense-layers"):
 
-        dense1 = tf.layers.dense(flatten, 512, activation=tf.nn.elu, name="dense1")
-        dropout1 = tf.layers.dropout(dense1, name="dropout1")
+        dense1 = tf.layers.dense(flatten, 512, activation=activation, name="dense1")
+        dropout1 = tf.layers.dropout(dense1, training=training, name="dropout1")
 
-        dense2 = tf.layers.dense(dropout1, 64, activation=tf.nn.elu, name="dense2")
-        dropout2 = tf.layers.dropout(dense2, name="dropout2")
+        dense2 = tf.layers.dense(dropout1, 64, activation=activation, name="dense2")
+        dropout2 = tf.layers.dropout(dense2, training=training, name="dropout2")
 
-        dense3 = tf.layers.dense(dropout2, 8, activation=tf.nn.elu, name="dense3")
-        dropout3 = tf.layers.dropout(dense3, name="dropout3")
+        dense3 = tf.layers.dense(dropout2, 8, activation=activation, name="dense3")
+        dropout3 = tf.layers.dropout(dense3, training=training, name="dropout3")
 
-        dense4 = tf.layers.dense(dropout3, 4, activation=tf.nn.elu, name="dense4")
+        dense4 = tf.layers.dense(dropout3, 4, activation=activation, name="dense4")
         tf.summary.histogram("dense4", dense4)
         
         with tf.variable_scope("dense5"):
@@ -61,9 +78,13 @@ def cnn_model(log=False):
     tf.summary.scalar("Loss", loss)
     summary = tf.summary.merge_all()
 
-    train = tf.train.AdamOptimizer(0.0001).minimize(loss)
-    # train = tf.train.RMSPropOptimizer(0.0001).minimize(loss)
-    # train = tf.train.FtrlOptimizer(0.0001).minimize(loss)
+    if config.optimizer == "adam":
+        train = tf.train.AdamOptimizer(config.lr).minimize(loss)
+    elif config.optimizer == "adadelta":
+        train = tf.train.AdadeltaOptimizer(config.lr).minimize(loss)
+    else:
+        print("Unknown optimizer {}".format(config.optimizer))
+        exit()
 
     if log:
         print("Sensor data: {}".format(sensor_data.shape))
@@ -84,14 +105,14 @@ def cnn_model(log=False):
         print("Dense4: {}".format(dense4.shape))
         print("Dense5: {}".format(dense5.shape))
 
-    # Get total number of trainable parameters
-    total_params = 0
-    for var in tf.trainable_variables():
-        p = 1
-        for d in var.shape:
-            p *= d.value
-        total_params += p
-    print("Trainable Parameters: ", total_params)
+        # Get total number of trainable parameters
+        total_params = 0
+        for var in tf.trainable_variables():
+            p = 1
+            for d in var.shape:
+                p *= d.value
+            total_params += p
+        print("Trainable Parameters: ", total_params)
 
     model = {
         'sensor_data': sensor_data,
@@ -99,10 +120,28 @@ def cnn_model(log=False):
         'prediction': prediction,
         'loss': loss,
         'train': train,
-        'summary': summary
+        'summary': summary,
+        'training': training
     }
 
     return model
+
+def rnn_model(log=False):
+    """ Builds a RNN model and returns the inputs/outputs with loss and train_op in a dictionary. """
+    
+    print("Building the RNN model...")
+
+    # Placeholder for input sensor data.
+    sensor_data = tf.placeholder(tf.float32, 
+                                shape=(None, *config.FEATURES_SHAPE),
+                                name="sensor-data")
+
+    # Placeholder for output class label.
+    label = tf.placeholder(tf.uint8, shape=(None, ), name="label")
+
+
+
+
 
 if __name__ == "__main__":
 

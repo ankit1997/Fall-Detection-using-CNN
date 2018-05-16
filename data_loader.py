@@ -82,7 +82,7 @@ class Data:
             # combine.append(acc_data[i] + gyro_data[i] + ori_data[i])
             combine.append(acc_data[i] + gyro_data[i])
         combine = np.array(combine)
-
+        
         if 0:
             sqrs = np.square(combine)
             sos = np.sum(sqrs, axis=1)
@@ -110,12 +110,12 @@ class Data:
         return features
 
     def _adjust_len(self, data):
-
         n = len(data)
         if n >= TIMESTEPS:
             return data[:TIMESTEPS]
         else:
-            return data + [[0.0] * NUM_FEATURES] * (TIMESTEPS-n)
+            data = data + [[0.0] * 3] * (TIMESTEPS-n)
+            return data
         
     def _get_class_files(self, directories):
         files = []
@@ -181,8 +181,9 @@ class DataLoader:
         self.Y = self.Y[indices]
 
         # Degree of balance in data
-        print("Fall datapoints: {}".format(np.count_nonzero(self.Y == 1)))
-        print("Non Fall datapoints: {}".format(np.count_nonzero(self.Y == 0)))
+        num_fall = np.count_nonzero(self.Y == 1)
+        num_nonFall = np.count_nonzero(self.Y == 0)
+        print("(Fall, Non-fall) count = ({}, {})".format(num_fall, num_nonFall))
 
         self.trainX, self.validX, self.trainY, self.validY = train_test_split(self.X, self.Y, 
                                                                             train_size=train_size)

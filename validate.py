@@ -1,6 +1,6 @@
-'''
+"""
 @author: Ankit Bindal
-'''
+"""
 
 import tensorflow as tf
 
@@ -29,7 +29,8 @@ def validation(sess,
                             model['summary']], 
                             feed_dict={
                                 model['sensor_data']: sensor,
-                                model['label']: label
+                                model['label']: label,
+                                model['training']: False
                             })
         total_loss += loss
 
