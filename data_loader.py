@@ -57,10 +57,23 @@ class Data:
 
                 data = self._read_trail(acc, gyro, ori)
                 self.X.append(data)
-                self.Y.append([class_]*len(data))
+
+                if class_ == 0:
+                    label = [1, 0]
+                elif class_ == 1:
+                    label = [0, 1]
+                else:
+                    label = None
+                    print("ERROR: Unknown class number: {}".format(class_))
+
+                for i in range(len(data)):
+                    self.Y.append(label)
         
         self.X = np.concatenate(self.X)
-        self.Y = np.concatenate(self.Y)
+        self.Y = np.array(self.Y)
+
+        print("X: {}".format(self.X.shape))
+        print("Y: {}".format(self.Y.shape))
 
         # perform data augmentation
         self._augment()
@@ -181,14 +194,14 @@ class DataLoader:
         self.Y = self.Y[indices]
 
         # Degree of balance in data
-        num_fall = np.count_nonzero(self.Y == 1)
-        num_nonFall = np.count_nonzero(self.Y == 0)
+        num_fall = np.count_nonzero(np.argmax(self.Y, axis=1) == 1)
+        num_nonFall = np.count_nonzero(np.argmax(self.Y, axis=1) == 0)
         print("(Fall, Non-fall) count = ({}, {})".format(num_fall, num_nonFall))
 
         self.trainX, self.validX, self.trainY, self.validY = train_test_split(self.X, self.Y, 
                                                                             train_size=train_size)
-        print("Train dataset: {} : {}".format(self.trainX.shape, self.trainY.shape))
-        print("Validation dataset: {} : {}".format(self.validX.shape, self.validY.shape))
+        print("Train dataset: {} , {}".format(self.trainX.shape, self.trainY.shape))
+        print("Validation dataset: {} , {}".format(self.validX.shape, self.validY.shape))
 
         # print("Total training size: {}".format(self.trainX.shape[0] * self.trainX.shape[1] * self.trainX.shape[2]))
 
