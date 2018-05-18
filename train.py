@@ -7,17 +7,18 @@ import sys
 import config
 import argparse
 import numpy as np
+import model as models
 import tensorflow as tf
-from model import cnn_model
 from validate import validation
 from data_loader import DataLoader
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 def train(dataLoader,
-    validate_after=10, 
+    validate_after=5, 
     resume=False,
     perform_training=True,
-    save_best=False):    
+    save_best=False,
+    model_='cnn'):    
     """
     Perform training and validation of model.
     Args:
@@ -25,24 +26,29 @@ def train(dataLoader,
         validate_after : Number of epochs after which validation is performed.
                          The model is also saved after this.
         resume : If True, a previously saved model file is loaded.
-        performe_training : If False, training step is skipped, and final testing is done.
+        perform_training : If False, training step is skipped, and final testing is done.
+        save_best : If True, save session for epoch with minimum validation loss.
+        model_ : String denoting the neural network model to use (RNN or CNN)
     """
-    
-    model = cnn_model()
+
+    model = None
+    if model_ == 'cnn':
+        model = models.cnn_model()
+    elif model_ == 'rnn':
+        model = models.rnn_model()
 
     sess = tf.Session()
     saver = tf.train.Saver()
-    train_writer = tf.summary.FileWriter(os.path.join(config.logdir, "train"), sess.graph)
-    valid_writer = tf.summary.FileWriter(os.path.join(config.logdir, "validation"), sess.graph)
 
     sess.run(tf.global_variables_initializer())
 
     if resume:
         try:
-            prev_session = os.path.join("adam_0001_ELU_100", "saved_model", "model.ckpt-90")
+            prev_session = config.resume_ckpt
             saver.restore(sess, prev_session)
             print("Using previous session: {}".format(prev_session))
-        except:
+        except Exception as exp:
+            print(exp)
             print("Creating a new session.")
 
     if save_best:
@@ -50,7 +56,10 @@ def train(dataLoader,
     
     if perform_training:
         config.init()
-
+        
+        train_writer = tf.summary.FileWriter(os.path.join(config.logdir, "train"), sess.graph)
+        valid_writer = tf.summary.FileWriter(os.path.join(config.logdir, "validation"), sess.graph)
+        
         for e in range(config.EPOCHS):
             epoch_loss = 0.0
 
@@ -101,6 +110,8 @@ def train(dataLoader,
                             model['training']: False
                         })
 
+        label = np.argmax(label, axis=1)
+
         positives += np.count_nonzero(label == 1)
         negatives += np.count_nonzero(label == 0)
 
@@ -119,15 +130,16 @@ def train(dataLoader,
         accuracies.append(np.count_nonzero(pred == label) / pred.shape[0] * 100)
 
     accuracies = np.array(accuracies)
-    num_valid_points = dataLoader.validX.shape[0]
+    
+    # print(positives, negatives)
+    # print("True positives : {}".format(true_positives))
+    # print("False negatives: {}".format(false_negatives))
+    # print("False positives: {}".format(false_positives))
+    # print("True negatives: {}".format(true_negatives))
 
-    # print("Average true positives: {}".format(true_positives / num_valid_points * 100))
-    # print("Average true negatives: {}".format(true_negatives / num_valid_points * 100))
-    # print("Average false positives: {}".format(false_positives / num_valid_points * 100))
-    # print("Average false negatives: {}".format(false_negatives / num_valid_points * 100))
-
-    print("True positives : {} / {} = {}%".format(true_positives, positives, true_positives/positives))
-    print("False positives: {} / {} = {}%".format(false_positives, negatives, false_positives/negatives))
+    print("Sensitivity: {}".format(true_positives/positives))
+    print("Specificity: {}".format(true_negatives/negatives))
+    print("Precision: {}".format(true_positives/(true_positives+false_positives)))
 
     print("Min Validation set accuracy: {} %".format(accuracies.min()))
     print("Max Validation set accuracy: {} %".format(accuracies.max()))
@@ -144,6 +156,8 @@ if __name__ == "__main__":
     parser.add_argument("--saveBest", help="If set, save session only for lowest validation loss epoch", action="store_true")
     parser.add_argument("--usePrevious", help="If set, use previously loaded dataset", action="store_true")
     parser.add_argument("--reload", help="If set, built dataset again", action="store_true")
+    parser.add_argument("--cnn", help="Use CNN model", action="store_true")
+    parser.add_argument("--rnn", help="Use RNN model", action="store_true")
     args = parser.parse_args()
 
     path = args.path
@@ -152,17 +166,29 @@ if __name__ == "__main__":
     saveBest = args.saveBest
     use_previous = args.usePrevious
     reload = args.reload
+    cnn = args.cnn
+    rnn = args.rnn
 
+    assert not(cnn and rnn), "Must select single model type."
     assert not(reload and use_previous), "Both reload and usePrevious flags cannot be set."
 
     if reload:
         use_previous = False
 
+    if cnn:
+        model_ = 'cnn'
+    elif rnn:
+        model_ = 'rnn'
+    else:
+        print("Unreachable code")
+        exit()
+
     # Load dataset
     dataLoader = DataLoader(path, use_previous=use_previous)
-
+    
     # Train the model
     train(dataLoader, 
         resume=resume, 
         perform_training=perform_training, 
-        save_best=saveBest)
+        save_best=saveBest,
+        model_=model_)
